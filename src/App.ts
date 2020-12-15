@@ -5,6 +5,7 @@ import util from 'util';
 import { WebClient, ChatPostMessageArguments, addAppMetadata, WebClientOptions } from '@slack/web-api';
 import { Logger, LogLevel, ConsoleLogger } from '@slack/logger';
 import axios, { AxiosInstance } from 'axios';
+import SocketModeReceiver from './SocketModeReceiver';
 import ExpressReceiver, { ExpressReceiverOptions } from './ExpressReceiver';
 import {
   ignoreSelf as ignoreSelfMiddleware,
@@ -67,6 +68,7 @@ export interface AppOptions {
   clientTls?: Pick<SecureContextOptions, 'pfx' | 'key' | 'passphrase' | 'cert' | 'ca'>;
   convoStore?: ConversationStore | false;
   token?: AuthorizeResult['botToken']; // either token or authorize
+  appToken?: string; // TODO should this be included in AuthorizeResult
   botId?: AuthorizeResult['botId']; // only used when authorize is not defined, shortcut for fetching
   botUserId?: AuthorizeResult['botUserId']; // only used when authorize is not defined, shortcut for fetching
   authorize?: Authorize; // either token or authorize
@@ -76,6 +78,7 @@ export interface AppOptions {
   logLevel?: LogLevel;
   ignoreSelf?: boolean;
   clientOptions?: Pick<WebClientOptions, 'slackApiUrl'>;
+  socketMode?: boolean;
 }
 
 export { LogLevel, Logger } from '@slack/logger';
@@ -194,6 +197,7 @@ export default class App {
     receiver = undefined,
     convoStore = undefined,
     token = undefined,
+    appToken = undefined,
     botId = undefined,
     botUserId = undefined,
     authorize = undefined,
@@ -209,6 +213,7 @@ export default class App {
     installationStore = undefined,
     scopes = undefined,
     installerOptions = undefined,
+    socketMode = false,
   }: AppOptions = {}) {
     if (typeof logger === 'undefined') {
       // Initialize with the default logger
@@ -250,6 +255,22 @@ export default class App {
     // Check for required arguments of ExpressReceiver
     if (receiver !== undefined) {
       this.receiver = receiver;
+    } else if (socketMode) {
+      if (appToken === undefined) {
+        throw new AppInitializationError('You must provide an appToken when using socketMode');
+      }
+      this.logger.debug('Initializing SocketModeReceiver');
+      // Create default SocketModeReceiver
+      this.receiver = new SocketModeReceiver({
+        appToken,
+        clientId,
+        clientSecret,
+        stateSecret,
+        installationStore,
+        scopes,
+        installerOptions: this.installerOptions,
+        logger: this.logger,
+      });
     } else if (signingSecret === undefined) {
       // No custom receiver
       throw new AppInitializationError(
@@ -257,6 +278,7 @@ export default class App {
           'custom receiver.',
       );
     } else {
+      this.logger.debug('Initializing ExpressReceiver');
       // Create default ExpressReceiver
       this.receiver = new ExpressReceiver({
         signingSecret,
