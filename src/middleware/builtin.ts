@@ -210,28 +210,46 @@ export function matchConstraints(
  * Middleware that filters out messages that don't match pattern
  */
 export function matchMessage(
-  pattern: string | RegExp,
+  patternOfArrayOfPatterns: string | RegExp | (string|RegExp)[],
 ): Middleware<SlackEventMiddlewareArgs<'message' | 'app_mention'>> {
   return async ({ event, context, next }) => {
-    let tempMatches: RegExpMatchArray | null;
+    let tempMatches: RegExpMatchArray | null = null;
 
     if (!('text' in event) || event.text === undefined) {
       return;
     }
 
-    // Filter out messages or app mentions that don't contain the pattern
-    if (typeof pattern === 'string') {
-      if (!event.text.includes(pattern)) {
-        return;
-      }
+    let arrayOfPatterns: (string|RegExp)[];
+    if (Array.isArray(patternOfArrayOfPatterns)) {
+      arrayOfPatterns = patternOfArrayOfPatterns;
     } else {
-      tempMatches = event.text.match(pattern);
+      arrayOfPatterns = [patternOfArrayOfPatterns];
+    }
 
-      if (tempMatches !== null) {
-        context['matches'] = tempMatches;
+    // Filter out messages or app mentions that don't contain the pattern
+    let foundMatch = false;
+    arrayOfPatterns.forEach(pattern => {
+      if (typeof pattern === 'string') {
+        if (event !== undefined && event.text !== undefined && event.text.includes(pattern)) {
+          foundMatch = true;
+        }
       } else {
-        return;
+        if (event !== undefined && event.text !== undefined) {
+          tempMatches = event.text.match(pattern);
+        }
+
+        if (tempMatches !== null) {
+          if (context['matches'] === undefined) {
+            context['matches'] = [];
+          }
+          context['matches'].push(tempMatches);
+          foundMatch = true;
+        }
       }
+    });
+
+    if (!foundMatch) {
+      return;
     }
 
     // TODO: remove the non-null assertion operator
