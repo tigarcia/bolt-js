@@ -368,9 +368,12 @@ export default class App {
   // TODO: maybe remove the first two overloads
   public message(...listeners: Middleware<SlackEventMiddlewareArgs<'message'>>[]): void;
   public message(pattern: string | RegExp, ...listeners: Middleware<SlackEventMiddlewareArgs<'message'>>[]): void;
-  public message(...patternsOrMiddleware: (string | RegExp | ((string | RegExp)[]) |  Middleware<SlackEventMiddlewareArgs<'message'>>)[]): void {
-
-    function isStringOrRegExpArray(patternOrMiddleware: (string | RegExp | ((string | RegExp)[]) |  Middleware<SlackEventMiddlewareArgs<'message'>>)): patternOrMiddleware is (string | RegExp)[] {
+  public message(
+    ...patternsOrMiddleware: (string | RegExp | (string | RegExp)[] | Middleware<SlackEventMiddlewareArgs<'message'>>)[]
+  ): void {
+    function isStringOrRegExpArray(
+      patternOrMiddleware: string | RegExp | (string | RegExp)[] | Middleware<SlackEventMiddlewareArgs<'message'>>,
+    ): patternOrMiddleware is (string | RegExp)[] {
       return Array.isArray(patternOrMiddleware);
     }
 
